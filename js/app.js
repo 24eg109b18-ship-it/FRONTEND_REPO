@@ -203,6 +203,7 @@
             </div>
             <span class="tagline">${esc(i.category)}</span>
             ${i.description ? `<p class="desc">${esc(i.description)}</p>` : ""}
+            ${d.reporter && i.status !== "CLOSED" ? `<button class="btn btn-danger" id="deleteBtn" type="button">Delete this report</button>` : ""}
             ${!d.reporter && i.responseCount ? `<p class="meta-line">${i.responseCount === 1 ? "1 person has" : i.responseCount + " people have"} started a chat about this item.</p>` : ""}
           </div>
         </article>
@@ -210,6 +211,16 @@
       </div></div>`);
     current = { id, d, sig: signature(d) };
     renderConv(d);
+    const del = document.getElementById("deleteBtn");
+    if (del) del.onclick = async () => {
+      if (!window.confirm("Delete this report? Any chats on it will be deleted too. This cannot be undone.")) return;
+      del.disabled = true;
+      try {
+        await api(`/api/items/${id}`, { method: "DELETE" });
+        notice = { kind: "ok", text: "Report deleted." };
+        go("#/");
+      } catch (e) { toast(e.error || "Something went wrong.", "error"); del.disabled = false; }
+    };
     poll = setInterval(() => { if (!document.hidden) sync(id).catch(() => {}); }, 6000);
   }
 

@@ -176,3 +176,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.btn-danger { margin-top: 16px; background: #fde8e8; color: #8c1d22; }
+.btn-danger:hover { background: #fbd3d3; }
