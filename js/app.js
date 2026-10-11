@@ -14,6 +14,7 @@
   let notice = null;                                                       // toast shown after the next render
   let poll = null, current = null;                                         // live refresh of the open item
   const active = {};                                                       // which conversation is open, per item
+  let prefill = "";                                                         // email carried from sign-up to sign-in
   const drafts = {};                                                       // unsent text, so refreshes never wipe it
 
   /* ---------- helpers ---------- */
@@ -58,7 +59,7 @@
     const data = await res.json().catch(() => null);
     if (res.status === 401 && session && !path.startsWith("/api/auth/")) {
       setSession(null);
-      notice = { kind: "error", text: "Your session expired. Log in again." };
+      notice = { kind: "error", text: "Your session expired. Sign in again." };
       location.hash = "#/login";
     }
     if (!res.ok) throw { status: res.status, ...(data || { error: "Something went wrong." }) };
@@ -81,10 +82,10 @@
       `<a class="btn btn-lost" href="#/new?type=LOST">Report lost</a>
        <a class="btn btn-found" href="#/new?type=FOUND">Report found</a>` +
       (session
-        ? `<a href="#/mine">My cases</a><button class="link" id="logout" type="button">Log out (${esc(first(session.name))})</button>`
-        : `<a href="#/login">Log in</a><a href="#/register">Sign up</a>`);
+        ? `<a href="#/mine">My cases</a><button class="link" id="logout" type="button">Sign out (${esc(first(session.name))})</button>`
+        : `<a href="#/login">Sign in</a><a href="#/register">Sign up</a>`);
     const out = document.getElementById("logout");
-    if (out) out.onclick = () => { setSession(null); notice = { kind: "ok", text: "Logged out." }; go("#/"); };
+    if (out) out.onclick = () => { setSession(null); notice = { kind: "ok", text: "Signed out." }; go("#/"); };
   }
 
   const card = (i) => {
@@ -268,8 +269,8 @@
     let html;
     if (!session) {
       html = emptyState("💬", closed ? "This case is closed" : lost ? "Found this item?" : "Is this yours?",
-        closed ? "The item has been handed back." : "Log in to start a private chat with the person who posted this.",
-        closed ? "" : `<a class="btn btn-solid" href="#/login">Log in</a>`);
+        closed ? "The item has been handed back." : "Sign in to start a private chat with the person who posted this.",
+        closed ? "" : `<a class="btn btn-solid" href="#/login">Sign in</a>`);
     } else if (d.canRespond) {
       html = `<div class="conv-start">
         <h2>${lost ? "Found this item?" : "Is this yours?"}</h2>
@@ -344,7 +345,7 @@
 
   /* ---------- report an item ---------- */
   function newItem(p) {
-    if (!session) { notice = { kind: "error", text: "Log in to report an item." }; go("#/login"); return; }
+    if (!session) { notice = { kind: "error", text: "Sign in to report an item." }; go("#/login"); return; }
     const type = p.get("type") === "FOUND" ? "FOUND" : "LOST";
     const today = new Date().toISOString().slice(0, 10);
     const err = (n) => `<small class="err" data-err="${n}"></small>`;
@@ -399,21 +400,27 @@
     const err = (n) => `<small class="err" data-err="${n}"></small>`;
     show(`<div class="wrap narrow"><div class="form-card">
       <h1 class="page-title">${reg ? "Create your account" : "Welcome back"}</h1>
-      <p>${reg ? "You need an account to report items and start chats. Browsing is open to everyone." : "Log in to report items and chat with finders and owners."}</p>
+      <p>${reg ? "You need an account to report items and start chats. Browsing is open to everyone." : "Sign in to report items and chat with finders and owners."}</p>
       <form class="form" id="authForm">
         ${reg ? `<label>Full name <input type="text" name="name" autocomplete="name">${err("name")}</label>` : ""}
-        <label>Email <input type="email" name="email" required autocomplete="email">${err("email")}</label>
+        <label>Email <input type="email" name="email" required autocomplete="email" value="${reg ? "" : esc(prefill)}">${err("email")}</label>
         ${reg ? `<label>Phone (optional, shown only to people you chat with) <input type="tel" name="phone" autocomplete="tel">${err("phone")}</label>` : ""}
         <label>Password <input type="password" name="password" required autocomplete="${reg ? "new-password" : "current-password"}">${err("password")}</label>
         <p class="error" hidden></p>
-        <button class="btn btn-solid" type="submit">${reg ? "Create account" : "Log in"}</button>
+        <button class="btn btn-solid" type="submit">${reg ? "Create account" : "Sign in"}</button>
       </form>
-      <p>${reg ? `Already registered? <a href="#/login">Log in</a>` : `New here? <a href="#/register">Create an account</a>`}</p>
+      <p>${reg ? `Already registered? <a href="#/login">Sign in</a>` : `New here? <a href="#/register">Create an account</a>`}</p>
     </div></div>`);
     const form = document.getElementById("authForm");
     onSubmit(form, async () => {
       const body = Object.fromEntries(new FormData(form));
       const r = await api(reg ? "/api/auth/register" : "/api/auth/login", { method: "POST", body });
+      if (reg) {
+        prefill = body.email;
+        notice = { kind: "ok", text: "Account created. Please sign in." };
+        go("#/login");
+        return;
+      }
       setSession({ token: r.token, name: r.name, email: r.email });
       notice = { kind: "ok", text: "Welcome, " + first(r.name) + "!" };
       go("#/");
